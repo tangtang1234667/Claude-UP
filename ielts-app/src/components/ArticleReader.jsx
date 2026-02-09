@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { speak, stop, isSpeaking } from '../utils/tts.js';
+import { speak, stop } from '../utils/tts.js';
 import { translateText } from '../utils/translate.js';
 import { addFavorite, removeFavorite, isFavorite } from '../utils/storage.js';
 
@@ -58,7 +58,6 @@ export default function ArticleReader({ article }) {
       return;
     }
     setShowTranslation(true);
-    // Translate sentences that aren't cached yet
     for (let i = 0; i < sentences.length; i++) {
       if (!translations[i]) {
         const t = await translateText(sentences[i]);
@@ -89,16 +88,18 @@ export default function ArticleReader({ article }) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-bold text-gray-800">{article.title}</h2>
+      <h2 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-indigo-800 bg-clip-text text-transparent animate-fade-in-up">
+        {article.title}
+      </h2>
 
-      {/* Controls */}
-      <div className="flex flex-wrap items-center gap-3 bg-white rounded-xl border border-gray-200 p-3">
+      {/* Controls with glass effect */}
+      <div className="animate-fade-in-up stagger-1 flex flex-wrap items-center gap-3 bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200/80 p-3 shadow-sm">
         <button
           onClick={playAll}
-          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-300 ${
             playingAll
-              ? 'bg-red-100 text-red-700 hover:bg-red-200'
-              : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+              ? 'bg-red-100 text-red-700 hover:bg-red-200 animate-pulse-glow'
+              : 'bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 hover:shadow-md hover:shadow-indigo-100'
           }`}
         >
           {playingAll ? '⏹ 停止' : '▶ 播放全文'}
@@ -109,8 +110,10 @@ export default function ArticleReader({ article }) {
             <button
               key={s}
               onClick={() => setSpeed(s)}
-              className={`px-2 py-1 rounded text-xs ${
-                speed === s ? 'bg-indigo-600 text-white' : 'bg-gray-100 hover:bg-gray-200'
+              className={`px-2 py-1 rounded text-xs transition-all duration-200 ${
+                speed === s
+                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-sm'
+                  : 'bg-gray-100 hover:bg-gray-200'
               }`}
             >
               {s}x
@@ -119,9 +122,9 @@ export default function ArticleReader({ article }) {
         </div>
         <button
           onClick={toggleTranslation}
-          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-300 ${
             showTranslation
-              ? 'bg-green-100 text-green-700'
+              ? 'bg-green-100 text-green-700 shadow-sm shadow-green-100'
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
           }`}
         >
@@ -129,22 +132,22 @@ export default function ArticleReader({ article }) {
         </button>
       </div>
 
-      {/* Sentences */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-3">
+      {/* Sentences with animated highlights */}
+      <div className="animate-fade-in-up stagger-2 bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200/80 p-5 space-y-3 shadow-sm">
         {sentences.map((sentence, idx) => (
           <div key={idx} className="group">
             <div
-              className={`leading-relaxed cursor-pointer rounded-lg px-2 py-1 transition-colors ${
+              className={`leading-relaxed cursor-pointer rounded-lg px-2 py-1.5 transition-all duration-300 ${
                 activeSentence === idx
-                  ? 'bg-indigo-100 text-indigo-800'
-                  : 'hover:bg-gray-50'
+                  ? 'reading-highlight text-indigo-800 scale-[1.01] shadow-sm'
+                  : 'hover:bg-indigo-50/50'
               }`}
               onClick={() => playSentence(idx)}
             >
               {sentence.split(/(\s+)/).map((word, wIdx) => (
                 <span
                   key={wIdx}
-                  className={word.trim() ? 'hover:text-indigo-600 hover:underline cursor-pointer' : ''}
+                  className={word.trim() ? 'word-hover cursor-pointer rounded px-0.5' : ''}
                   onClick={(e) => {
                     if (word.trim()) {
                       e.stopPropagation();
@@ -155,12 +158,12 @@ export default function ArticleReader({ article }) {
                   {word}
                 </span>
               ))}
-              <span className="invisible group-hover:visible text-indigo-400 ml-2 text-xs">
+              <span className="invisible group-hover:visible text-indigo-400 ml-2 text-xs transition-opacity">
                 🔊 点击播放
               </span>
             </div>
             {showTranslation && translations[idx] && (
-              <div className="text-sm text-gray-500 px-2 mt-1 border-l-2 border-indigo-200 ml-2 pl-2">
+              <div className="animate-fade-in text-sm text-gray-500 px-2 mt-1 border-l-2 border-indigo-300 ml-2 pl-2">
                 {translations[idx]}
               </div>
             )}
@@ -168,15 +171,15 @@ export default function ArticleReader({ article }) {
         ))}
       </div>
 
-      {/* Word popup */}
+      {/* Word popup with scale animation */}
       {selectedWord && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => setSelectedWord(null)}>
-          <div className="bg-white rounded-2xl p-5 w-full max-w-xs shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in" onClick={() => setSelectedWord(null)}>
+          <div className="animate-scale-in bg-white rounded-2xl p-5 w-full max-w-xs shadow-2xl border border-indigo-100" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xl font-bold text-gray-800">{selectedWord}</h3>
+              <h3 className="text-xl font-bold bg-gradient-to-r from-indigo-700 to-purple-700 bg-clip-text text-transparent">{selectedWord}</h3>
               <button
                 onClick={() => speak(selectedWord, { rate: 0.8 })}
-                className="text-indigo-600 hover:text-indigo-800"
+                className="text-indigo-600 hover:text-indigo-800 text-xl transition-transform hover:scale-110"
               >
                 🔊
               </button>
@@ -185,9 +188,9 @@ export default function ArticleReader({ article }) {
             <div className="flex gap-2">
               <button
                 onClick={() => toggleFavorite(selectedWord)}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium ${
+                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${
                   favorited[selectedWord]
-                    ? 'bg-yellow-100 text-yellow-700'
+                    ? 'bg-gradient-to-r from-yellow-100 to-amber-100 text-yellow-700 shadow-sm'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
@@ -195,7 +198,7 @@ export default function ArticleReader({ article }) {
               </button>
               <button
                 onClick={() => setSelectedWord(null)}
-                className="flex-1 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200"
+                className="flex-1 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
               >
                 关闭
               </button>

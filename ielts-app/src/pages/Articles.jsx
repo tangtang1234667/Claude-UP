@@ -46,10 +46,10 @@ export default function Articles() {
 
   if (activeArticle) {
     return (
-      <div>
+      <div className="animate-slide-right">
         <button
           onClick={() => setActiveArticle(null)}
-          className="mb-4 text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+          className="mb-4 text-indigo-600 hover:text-indigo-800 text-sm font-medium transition-colors"
         >
           &larr; 返回文章列表
         </button>
@@ -60,34 +60,34 @@ export default function Articles() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-800">文章阅读</h2>
+      <div className="flex items-center justify-between animate-fade-in-up">
+        <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-indigo-800 bg-clip-text text-transparent">文章阅读</h2>
         <button
           onClick={() => setShowImport(true)}
-          className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+          className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:shadow-lg hover:shadow-indigo-200 transition-all duration-300 hover:-translate-y-0.5"
         >
           + 导入文章
         </button>
       </div>
 
-      {/* Import modal */}
+      {/* Import modal with scale animation */}
       {showImport && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-lg max-h-[80vh] overflow-auto">
-            <h3 className="text-lg font-semibold mb-4">导入文章</h3>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="animate-scale-in bg-white rounded-2xl p-6 w-full max-w-lg max-h-[80vh] overflow-auto shadow-2xl border border-indigo-100">
+            <h3 className="text-lg font-semibold mb-4 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">导入文章</h3>
             <input
               type="text"
               placeholder="文章标题（可选）"
               value={importTitle}
               onChange={(e) => setImportTitle(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 mb-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow"
             />
             <textarea
               placeholder="粘贴英文文章内容..."
               value={importText}
               onChange={(e) => setImportText(e.target.value)}
               rows={10}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 mb-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none transition-shadow"
             />
             <div className="mb-4">
               <label className="block text-sm text-gray-500 mb-1">或上传文件（.txt）</label>
@@ -101,14 +101,14 @@ export default function Articles() {
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => { setShowImport(false); setImportText(''); setImportTitle(''); }}
-                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 取消
               </button>
               <button
                 onClick={handleImport}
                 disabled={!importText.trim()}
-                className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                className="px-4 py-2 text-sm bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg disabled:opacity-50 transition-all"
               >
                 导入
               </button>
@@ -117,25 +117,25 @@ export default function Articles() {
         </div>
       )}
 
-      {/* Article list */}
+      {/* Article list with staggered entrance */}
       {articles.length === 0 ? (
-        <div className="text-center py-20 text-gray-400">
-          <p className="text-5xl mb-4">📖</p>
+        <div className="text-center py-20 text-gray-400 animate-fade-in-up stagger-2">
+          <p className="text-5xl mb-4 animate-float">📖</p>
           <p>还没有文章，点击上方按钮导入你感兴趣的英文文章</p>
         </div>
       ) : (
         <div className="grid gap-4">
-          {articles.map(article => (
+          {articles.map((article, idx) => (
             <div
               key={article.id}
-              className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow"
+              className={`animate-fade-in-up stagger-${Math.min(idx + 1, 6)} bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200/80 p-4 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 hover:border-indigo-200/50 group`}
             >
               <div className="flex items-start justify-between">
                 <div
                   className="flex-1 cursor-pointer"
                   onClick={() => setActiveArticle(article)}
                 >
-                  <h3 className="font-semibold text-gray-800">{article.title}</h3>
+                  <h3 className="font-semibold text-gray-800 group-hover:text-indigo-700 transition-colors">{article.title}</h3>
                   <p className="text-sm text-gray-500 mt-1 line-clamp-2">
                     {article.content.slice(0, 150)}...
                   </p>
@@ -145,7 +145,7 @@ export default function Articles() {
                 </div>
                 <button
                   onClick={() => handleDelete(article.id)}
-                  className="text-gray-400 hover:text-red-500 ml-3 text-sm"
+                  className="text-gray-300 hover:text-red-500 ml-3 text-sm transition-colors"
                 >
                   删除
                 </button>
