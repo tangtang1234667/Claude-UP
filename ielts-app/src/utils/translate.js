@@ -1,17 +1,37 @@
 const CACHE_KEY = 'ielts_translate_cache';
 
+// Keep cache in memory to avoid repeated JSON.parse on every call
+let memoryCache = null;
+
 function getCache() {
+  if (memoryCache) return memoryCache;
   try {
-    return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
-  } catch { return {}; }
+    memoryCache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+    return memoryCache;
+  } catch {
+    memoryCache = {};
+    return memoryCache;
+  }
 }
 
 function setCache(key, value) {
-  try {
-    const cache = getCache();
-    cache[key] = value;
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-  } catch {}
+  const cache = getCache();
+  cache[key] = value;
+  // Debounced persist — don't write to localStorage on every single call
+  schedulePersist();
+}
+
+let persistTimer = null;
+function schedulePersist() {
+  if (persistTimer) return;
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    try {
+      if (memoryCache) {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(memoryCache));
+      }
+    } catch {}
+  }, 1000);
 }
 
 // Simple dictionary for common words - offline fallback
@@ -29,7 +49,7 @@ export async function translateText(text) {
 
   try {
     const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|zh`;
-    const res = await fetch(url);
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
     const data = await res.json();
     if (data.responseStatus === 200 && data.responseData?.translatedText) {
       const result = data.responseData.translatedText;
@@ -38,15 +58,45 @@ export async function translateText(text) {
     }
   } catch {}
 
-  // Fallback: return placeholder
   return `[翻译] ${text}`;
 }
 
-export async function translateSentences(sentences) {
-  const results = [];
-  for (const s of sentences) {
-    results.push(await translateText(s));
+// Translate sentences in batches with concurrency control
+// onProgress(index, translation) is called as each sentence is translated
+export async function translateBatch(sentences, { concurrency = 3, signal, onProgress } = {}) {
+  const results = new Array(sentences.length).fill(null);
+  const cache = getCache();
+
+  // Fill cached results first
+  const pending = [];
+  for (let i = 0; i < sentences.length; i++) {
+    const cached = cache[sentences[i]];
+    if (cached) {
+      results[i] = cached;
+      if (onProgress) onProgress(i, cached);
+    } else {
+      pending.push(i);
+    }
   }
+
+  // Translate uncached sentences in parallel batches
+  let cursor = 0;
+  while (cursor < pending.length) {
+    if (signal?.aborted) break;
+
+    const batch = pending.slice(cursor, cursor + concurrency);
+    cursor += concurrency;
+
+    const promises = batch.map(async (idx) => {
+      if (signal?.aborted) return;
+      const t = await translateText(sentences[idx]);
+      results[idx] = t;
+      if (onProgress) onProgress(idx, t);
+    });
+
+    await Promise.all(promises);
+  }
+
   return results;
 }
 

@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { speak, stop } from '../utils/tts.js';
-import { translateText } from '../utils/translate.js';
+import { translateText, translateBatch } from '../utils/translate.js';
 import { addFavorite, removeFavorite, isFavorite } from '../utils/storage.js';
 
 function splitSentences(text) {
@@ -12,11 +12,14 @@ export default function ArticleReader({ article }) {
   const [activeSentence, setActiveSentence] = useState(-1);
   const [translations, setTranslations] = useState({});
   const [showTranslation, setShowTranslation] = useState(false);
+  const [translating, setTranslating] = useState(false);
+  const [translateProgress, setTranslateProgress] = useState(0);
   const [playingAll, setPlayingAll] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [selectedWord, setSelectedWord] = useState(null);
   const [wordTranslation, setWordTranslation] = useState('');
   const [favorited, setFavorited] = useState({});
+  const abortRef = useRef(null);
 
   const speeds = [0.5, 0.75, 1, 1.5];
 
@@ -54,17 +57,39 @@ export default function ArticleReader({ article }) {
 
   const toggleTranslation = useCallback(async () => {
     if (showTranslation) {
+      // Cancel ongoing translation if any
+      if (abortRef.current) {
+        abortRef.current.abort();
+        abortRef.current = null;
+      }
       setShowTranslation(false);
+      setTranslating(false);
       return;
     }
+
     setShowTranslation(true);
-    for (let i = 0; i < sentences.length; i++) {
-      if (!translations[i]) {
-        const t = await translateText(sentences[i]);
-        setTranslations(prev => ({ ...prev, [i]: t }));
-      }
+    setTranslating(true);
+    setTranslateProgress(0);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    let done = 0;
+    await translateBatch(sentences, {
+      concurrency: 3,
+      signal: controller.signal,
+      onProgress: (idx, text) => {
+        done++;
+        setTranslateProgress(Math.round((done / sentences.length) * 100));
+        setTranslations(prev => ({ ...prev, [idx]: text }));
+      },
+    });
+
+    if (!controller.signal.aborted) {
+      setTranslating(false);
     }
-  }, [showTranslation, sentences, translations]);
+    abortRef.current = null;
+  }, [showTranslation, sentences]);
 
   const handleWordClick = useCallback(async (word) => {
     const clean = word.replace(/[^a-zA-Z'-]/g, '').toLowerCase();
@@ -92,7 +117,7 @@ export default function ArticleReader({ article }) {
         {article.title}
       </h2>
 
-      {/* Controls with glass effect */}
+      {/* Controls */}
       <div className="animate-fade-in-up stagger-1 flex flex-wrap items-center gap-3 bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200/80 p-3 shadow-sm">
         <button
           onClick={playAll}
@@ -128,11 +153,24 @@ export default function ArticleReader({ article }) {
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
           }`}
         >
-          {showTranslation ? '隐藏翻译' : '显示翻译'}
+          {translating ? `翻译中 ${translateProgress}%` : showTranslation ? '隐藏翻译' : '显示翻译'}
         </button>
+        <span className="text-xs text-gray-400">共 {sentences.length} 句</span>
       </div>
 
-      {/* Sentences with animated highlights */}
+      {/* Translation progress bar */}
+      {translating && (
+        <div className="animate-fade-in w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+          <div
+            className="h-1.5 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all duration-300 relative"
+            style={{ width: `${translateProgress}%` }}
+          >
+            <div className="absolute inset-0 shimmer-bar rounded-full" />
+          </div>
+        </div>
+      )}
+
+      {/* Sentences */}
       <div className="animate-fade-in-up stagger-2 bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200/80 p-5 space-y-3 shadow-sm">
         {sentences.map((sentence, idx) => (
           <div key={idx} className="group">
@@ -171,7 +209,7 @@ export default function ArticleReader({ article }) {
         ))}
       </div>
 
-      {/* Word popup with scale animation */}
+      {/* Word popup */}
       {selectedWord && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in" onClick={() => setSelectedWord(null)}>
           <div className="animate-scale-in bg-white rounded-2xl p-5 w-full max-w-xs shadow-2xl border border-indigo-100" onClick={e => e.stopPropagation()}>
